@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:v-bind="http://www.w3.org/1999/xhtml" xmlns:v-on="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>AmQP server test</title>
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+    <script src="/socket.io/socket.io.js"></script>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/font-awesome.min.css">
+    <link type="text/css" rel="stylesheet" href="/css/style.css">
+    <script src="/js/vue.js"></script>
+</head>
+<body>
+<div class="container" id="app" style="margin-top: 30px;">
+    <div class="col-md-6">
+        <div class="form-group">
+            <div class="form-check" v-for="p in pub">
+                <label class="form-check-label">
+                    <input class="form-check-input" type="checkbox" v-model="p.selected"> {{p.name}}
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <h5>Subscribe new topic</h5>
+        <div class="form-group">
+            <label for="new-name">Name</label>
+            <input id="new-name" placeholder="My Super Topic" type="text" class="form-control" v-model="newTopic.name"/>
+        </div>
+        <div class="form-group">
+            <label for="new-id">ID</label>
+            <input id="new-id" placeholder="my_super_topic_id" type="text" class="form-control" v-model="newTopic.id"/>
+        </div>
+        <div class="form-group">
+            <button class="btn btn-success" v-on:click="addNew()">Subscribe</button>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="message">Message</label>
+        <input id="message" type="text" required class="form-control" v-model="message"/>
+    </div>
+    <div class="form-group">
+        <button type="button" v-on:click="send()" class="btn btn-primary">Send message</button>
+    </div>
+
+    <div class="col-md-3" style="border: 1px gray solid; min-height: 500px;" v-for="p in pub">
+        <h4 class="text-center">Messages from {{p.name}}</h4>
+        <div class="row">
+            <button class="btn btn-default btn-block" v-on:click="clear(p.id)">Clear messages</button>
+        </div>
+        <p class="border border-primary" v-for="message in p.messages">{{message}}</p>
+    </div>
+</div>
+
+<!-- /.container -->
+<script>
+    let socket;
+
+    const app = new Vue({
+        el: '#app',
+        data: {
+            pub: [],
+            message: "Example message",
+            newTopic: {
+                name: "",
+                id: "",
+                selected: false,
+                messages: []
+            }
+        },
+        methods: {
+            send: async function () {
+                let selectedPubs = [];
+
+                for (let i = 0; i < this.pub.length; i++) {
+                    let pub = this.pub[i];
+                    if (pub.selected) {
+                        selectedPubs.push(pub.id);
+                    }
+                }
+
+                if (!selectedPubs.length) {
+                    alert("Please select public to publish message");
+                    return;
+                }
+
+                if (!this.message.length) {
+                    alert("Message cant be blank");
+                    return;
+                }
+
+                socket.emit('send', {
+                    pubs: selectedPubs,
+                    message: this.message
+                });
+            },
+            addMessage: async function (id, message) {
+                this.pub.forEach((pub, index) => {
+                    if (pub.id === id) {
+                        this.pub[index].messages.push(message);
+                    }
+                })
+            },
+            clear: async function (id) {
+                this.pub.forEach((pub, index) => {
+                    if (pub.id === id) {
+                        this.pub[index].messages = [];
+                    }
+                })
+            },
+            activate: async function (id) {
+                console.log("Connected: " + id);
+            },
+            deactivate: async function (id, message) {
+                console.log("Error: " + id + ". message: " + message);
+            },
+            addNew: async function () {
+                if (!this.newTopic.name.length || !this.newTopic.name.length) {
+                    alert('Please, fill required fields');
+                    return;
+                }
+
+                let topic = Object.assign({}, this.newTopic);
+                topic.messages = [];
+
+                this.newTopic.id = '';
+                this.newTopic.name = '';
+                this.pub.push(topic);
+                socket.emit('topic', topic.id);
+            }
+        },
+    });
+
+    document.addEventListener('DOMContentLoaded', function () {
+        socket = io.connect(location.protocol + '//' + window.location.host);
+        // Handle browser websocket errors
+        socket.on('error', (error) => {
+            console.error("WS error: ", error.message);
+        });
+        // Handle server errors
+        socket.on('e', (error) => {
+            alert("Server error: " + error.message);
+        });
+
+        socket.on('message_received', (message) => {
+            app.addMessage(message.pub, message.message);
+        });
+
+        socket.on('subscribed', (id) => {
+            app.activate(id);
+        });
+
+        socket.on('topic_error', (data) => {
+            app.pub.forEach((pub) => {
+                if (pub.id === data.id) {
+                    app.deactivate(id, data.message);
+                }
+            })
+        });
+
+        app.pub.forEach((pub) => {
+            socket.emit('topic', pub.id);
+        })
+    });
+</script>
+</body>
+</html>

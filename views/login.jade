@@ -1,0 +1,22 @@
+doctype html
+html(lang='en')
+    head
+        meta(charset='UTF-8')
+        meta(name='viewport', content='width=device-width, initial-scale=1, shrink-to-fit=no')
+        title Login
+        link(rel='shortcut icon', href='/favicon.ico', type='image/x-icon')
+        link(rel='stylesheet', href='/css/bootstrap.min.css')
+    body
+        .container
+            .col-md-3
+            .col-md-6
+                form(action='', method='post')
+                    .form-group
+                        label(for='username') Username
+                        input#username.form-control(type='text', name='username', required='')
+                    .form-group
+                        label(for='password') Password
+                        input#password.form-control(type='password', name='password', required='')
+                    .form-group
+                        input.btn.btn-primary.btn-block(type='submit', value='Login')
+            .col-md-3
